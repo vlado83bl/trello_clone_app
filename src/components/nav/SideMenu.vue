@@ -70,12 +70,14 @@
             Getting started
           </a>
         </li>
-        <li class="team-dropdown__item py-1">
-          <a href="#" class="team-dropdown__item--link">
-            <i class="mr-2 fas fa-border-all"></i>
-            Boards
-          </a>
-        </li>
+        <router-link to="/boardlist">
+          <li class="team-dropdown__item py-1">
+            <a href="#" class="team-dropdown__item--link">
+              <i class="mr-2 fas fa-border-all"></i>
+              Boards
+            </a>
+          </li>
+        </router-link>
         <li class="team-dropdown__item py-1">
           <a href="#" class="team-dropdown__item--link">
             <i class="mr-2 far fa-heart"></i>

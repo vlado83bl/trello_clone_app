@@ -21,7 +21,7 @@
 <style lang="scss" scoped>
 .modal-background {
   position: fixed;
-  top: 4rem;
+  top: 0;
   left: 0;
   height: 100vh;
   width: 100%;
