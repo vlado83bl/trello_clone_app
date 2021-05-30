@@ -15,9 +15,6 @@ import TheHeader from "./components/nav/TheHeader.vue";
 import SideMenu from "./components/nav/SideMenu.vue";
 
 export default {
-  mounted() {
-    console.log(this.$route.path);
-  },
   components: {
     TheHeader,
     SideMenu,

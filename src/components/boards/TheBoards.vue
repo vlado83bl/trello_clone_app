@@ -93,9 +93,6 @@
 
 <script>
 export default {
-  mounted() {
-    console.log(this.trelloTemplates);
-  },
   data() {
     return {
       templates: [

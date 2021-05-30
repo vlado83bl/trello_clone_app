@@ -1,5 +1,8 @@
 <template>
-  <div class="mr-3">
+  <div 
+    class="mr-3"
+    :id="id"
+    >
     <div @click="openAddListField" v-if="addListButtonDisplayed" class="add-list-button d-flex align-items-center">
       <span class="mx-3 pb-1" style="font-size: 20px; color: #fff">&#43;</span>
       <p>Add a list</p>
@@ -13,7 +16,7 @@
     </div>
     <div v-if="addedListFieldDisplayed" class="added-list-field d-flex flex-column">
       <div class="added-list-field__name d-flex align-items-center mb-2">
-        <p class="ml-1 font-weight-bold">{{ listName }}</p>
+        <p class="ml-1 font-weight-bold">{{ trelloListObject.name }}</p>
         <i class=" ml-auto fas fa-ellipsis-h"></i>
       </div>
       <div @click="openAddCardField" class="added-list-field__card d-flex align-items-center">
@@ -23,11 +26,24 @@
     </div>
     <div v-if="addCardFieldDisplayed" class="add-card-field d-flex flex-column align-items-start">
       <div class="add-card-field__name d-flex align-items-center mb-3">
-        <p class="ml-1 font-weight-bold">{{ listName }}</p>
+        <p class="ml-1 font-weight-bold">{{ trelloListObject.name }}</p>
         <i class="ml-auto fas fa-ellipsis-h"></i>
       </div>
       <div class="added-cards">
-        <the-card v-for="card in cards" :key="card.id" :card="card"></the-card>
+        <the-card 
+          v-for="(card, i) in cards" 
+          :key="card.id" 
+          :card="card"
+          id="card.id"
+          draggable="true"
+          @dragstart="dragStart(i, $event)" 
+          @dragover.prevent 
+          @dragenter="dragEnter" 
+          @dragleave="dragLeave" 
+          @dragend="dragEnd" 
+          @drop="dragFinish(i, $event)"
+          >
+        </the-card>
       </div>
       <textarea @keyup.enter="addCardName" v-model="cardName" rows="3" placeholder="Enter a title for this card..."></textarea>
       <div class="add-card-field__add mt-2 d-flex align-items-center">
@@ -43,8 +59,11 @@
 import TheCard from '../cards/TheCard.vue';
 
 export default {
+  props: ['trelloListObject', 'id'],
   mounted() {
-    this.getCardsFromTrello();
+    // this.getListsFromTrello();
+    // this.initData();
+    this.getCardsFromTrello(this.trelloListObject.id);
   },
   components: {
     TheCard
@@ -54,27 +73,81 @@ export default {
       addListButtonDisplayed: true,
       addListFieldDisplayed: false,
       addedListFieldDisplayed: false,
-      addCardFieldDisplayed: false,
+      addCardFieldDisplayed: true,
       listName: '',
       cardName: '',
-      cards: [
-      ],
-      boardID: '60abc819bc426834ddf21de9'
+      cardNames: [],
+      cards: [],
+      idBoard: '60abc819bc426834ddf21de9',
+      key: 'd5116cdc7cd44da836b2546d0a1ec033',
+      token: '440269d91d9b3f0a1818d3bf9c8947edd31a8af0bab746b6c679055004729664',
+      lists: [],
+      dragging: -1
     }
   },
+  provide() {
+    return {
+      removeCard: this.deleteCard
+    };
+  },
   methods: {
+    dragStart(which, ev) {
+      ev.dataTransfer.setData('Text', this.id);
+      ev.dataTransfer.dropEffect = 'move'
+      this.dragging = which;
+    },
+    dragEnter(ev) {
+      console.log(ev);
+    },
+    dragEnd(ev) {
+      this.dragging = -1;
+      console.log(ev);
+    },
+    dragFinish(to, ev) {
+      this.moveItem(this.dragging, to);
+      ev.target.style.marginTop = '2px'
+      ev.target.style.marginBottom = '2px'
+    },
+    moveItem(from, to) {
+      if (to === -1) {
+        this.removeItemAt(from);
+      } else {
+        this.cards.splice(to, 0, this.cards.splice(from, 1)[0]);
+      }
+    },
+    removeItemAt(index) {
+      this.cards.splice(index, 1);
+    },
+    dragLeave(ev) {
+      console.log(ev);
+      },
     openAddListField() {
       this.addListFieldDisplayed = true;
       this.addListButtonDisplayed = false;
       this.$emit('listOpened', 1);
+      this.emitter.emit("list-names", this.listNames);
     },
-    addListName() {
+    async addListName() {
+      fetch(`https://api.trello.com/1/lists?key=${this.key}&token=${this.token}&name=${this.listName}&idBoard=${this.idBoard}`, {
+        method: 'POST'
+      }).then(response => response.json())
+      .then((data) => {
+        const list = {
+          name: data.name,
+          id: data.id
+        }
+        this.lists.push(list);
+        console.log(this.lists);
+        const listNames = [];
+        this.lists.forEach(el => listNames.push(el.name));
+        this.listNames = listNames;
+        console.log(this.listNames);
+      })
       this.addListFieldDisplayed = false;
       this.addedListFieldDisplayed = true;
     },
     async addCardName() {
-      var self = this;
-      fetch(`https://api.trello.com/1/cards?key=d5116cdc7cd44da836b2546d0a1ec033&token=440269d91d9b3f0a1818d3bf9c8947edd31a8af0bab746b6c679055004729664&idList=60b1045f18f54d2aec0de782&name=${this.cardName}`, {
+      fetch(`https://api.trello.com/1/cards?key=${this.key}&token=${this.token}&idList=${this.trelloListObject.id}&name=${this.cardName}`, {
         method: 'POST'
       })
       .then(response => response.json())
@@ -83,44 +156,38 @@ export default {
         name: data.name,
         id: data.id
         };
-        self.cards.push(card);
-        console.log(self.cards);
+        this.cards.push(card);
       });
-      self.cardName = '';
-    },
-    // async getCardFromTrello(cardID) {
-    //   try {
-    //     const response = await fetch(`https://api.trello.com/1/cards/${cardID}?key=d5116cdc7cd44da836b2546d0a1ec033&token=440269d91d9b3f0a1818d3bf9c8947edd31a8af0bab746b6c679055004729664`);
-    //     const data = await response.json();
-    //     this.trelloData.push(data)
-    //     // console.log(data);
-    //   } catch (error) {
-    //     console.log(error);
-    //   }
-    // }, 
-    async getListsFromTrello() {   
-        const response = await fetch('https://api.trello.com/1/boards/60abc819bc426834ddf21de9/lists?key=d5116cdc7cd44da836b2546d0a1ec033&token=440269d91d9b3f0a1818d3bf9c8947edd31a8af0bab746b6c679055004729664');
+      this.cardName = '';
+    }, 
+      async getCardsFromTrello(listID) {   
+        const response = await fetch(`https://api.trello.com/1/lists/${listID}/cards?key=${this.key}&token=${this.token}`);
         const data = await response.json();
-        console.log('LISTE', data);
+        console.log('CARDS', data);
+        data.forEach(el => this.cards.push(el));
+        this.cards.forEach(el => console.log(el.name));
+
       },
-    async getListFromTrello() {   
-        const response = await fetch('https://api.trello.com/1/lists/60b1045f18f54d2aec0de782?key=d5116cdc7cd44da836b2546d0a1ec033&token=440269d91d9b3f0a1818d3bf9c8947edd31a8af0bab746b6c679055004729664');
-        const data = await response.json();
-        console.log('LISTA', data);
-      },
-      async getCardsFromTrello() {   
-        const response = await fetch('https://api.trello.com/1/lists/60b1045f18f54d2aec0de782/cards?key=d5116cdc7cd44da836b2546d0a1ec033&token=440269d91d9b3f0a1818d3bf9c8947edd31a8af0bab746b6c679055004729664');
-        const data = await response.json();
-        console.log('LISTA', data);
-      },
-    // getDataFromTrello() {
-    //   var self = this;
-    //   this.cards.forEach(el => self.getCardFromTrello(el.id));
-    // }, 
     openAddCardField() {
       this.addCardFieldDisplayed = true;
       this.addedListFieldDisplayed = false;
-    }
+    },
+    async deleteCard(cardId) {
+      fetch(`https://api.trello.com/1/cards/${cardId}?key=${this.key}&token=${this.token}`, {
+        method: 'DELETE'
+      })
+      .then(response => response.json())
+      .then((data) => {
+        // const card = {
+        // name: data.name,
+        // id: data.id
+        // };
+        // this.cards.push(card);
+        console.log('data nakon brisanja', data);
+      });
+      const cardIndex = this.cards.findIndex(el => el.id === cardId);
+      this.cards.splice(cardIndex, 1);
+    }, 
   },
 };
 </script>
